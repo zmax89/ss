@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Tangkapan Layar AI</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Ubah untuk membolehkan kandungan bergulir */
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px; /* Tambah padding */
+            box-sizing: border-box;
+            overflow-y: auto; /* Benarkan tatal menegak */
+        }
+        canvas {
+            display: none; /* Kanvas disembunyikan, digunakan untuk melukis tangkapan layar */
+        }
+    </style>
+</head>
+<body class="selection:bg-indigo-300">
+    <div class="bg-white p-6 sm:p-8 md:p-10 rounded-2xl shadow-xl max-w-4xl w-full flex flex-col items-center gap-8 border border-gray-200">
+        <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 text-center mb-4">Aplikasi Tangkapan Layar AI</h1>
+
+        <!-- Paparan ID Pengguna -->
+        <div class="w-full text-center text-sm text-gray-600 mb-4">
+            ID Pengguna Anda: <span id="userIdDisplay" class="font-semibold text-indigo-700 break-all">Memuatkan...</span>
+        </div>
+
+        <!-- Bahagian Kawalan Tangkapan Layar -->
+        <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-4">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-2">Tetapan Tangkapan Layar</h2>
+
+                <div class="w-full">
+                    <label for="intervalInput" class="block text-gray-700 text-sm font-medium mb-2">Kekerapan Tangkapan (saat):</label>
+                    <input
+                        type="number"
+                        id="intervalInput"
+                        value="10"
+                        min="5"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 shadow-sm"
+                    />
+                </div>
+
+                <div class="w-full">
+                    <label for="startTimeInput" class="block text-gray-700 text-sm font-medium mb-2">Masa Mula (Waktu Lokal):</label>
+                    <input
+                        type="datetime-local"
+                        id="startTimeInput"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 shadow-sm"
+                    />
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 w-full justify-center">
+                    <button
+                        id="startButton"
+                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75"
+                    >
+                        Mula Jadual
+                    </button>
+                    <button
+                        id="stopButton"
+                        class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-75"
+                        disabled
+                    >
+                        Henti Jadual
+                    </button>
+                </div>
+                 <button
+                    id="captureNowButton"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 mt-2"
+                >
+                    Tangkapan Segera & Simpan
+                </button>
+            </div>
+
+            <!-- Paparan Tangkapan Layar Langsung -->
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-4">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-2">Tangkapan Layar Terkini</h2>
+                <div id="liveScreenshotContainer" class="w-full h-48 sm:h-64 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden relative">
+                    <p id="liveScreenshotPlaceholder" class="text-gray-500 text-center">Tiada tangkapan layar terkini.</p>
+                    <img id="liveScreenshotImage" src="" alt="Tangkapan Layar Langsung" class="absolute inset-0 w-full h-full object-contain hidden" />
+                    <div id="loadingIndicator" class="hidden absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 text-white text-lg rounded-lg">
+                        Memuatkan...
+                    </div>
+                </div>
+                <a
+                    id="downloadLiveButton"
+                    href="#"
+                    download="tangkapan-layar-live.png"
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75 mt-2 hidden"
+                >
+                    Muat Turun Terkini
+                </a>
+            </div>
+        </div>
+
+        <!-- Bahagian Log dan Mesej -->
+        <div class="w-full mt-4 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">Log Aplikasi</h2>
+            <div id="logDisplay" class="bg-gray-100 p-4 rounded-lg border border-gray-300 h-40 overflow-y-auto text-sm text-gray-700 break-words">
+                Sedia untuk berfungsi.
+            </div>
+        </div>
+
+        <!-- Bahagian Tangkapan Layar Tersimpan dan Pengecaman Imej AI -->
+        <div class="w-full mt-8 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Pengecaman Imej AI</h2>
+            <p class="text-gray-700 text-sm mb-4">
+                (Nota: Imej bersaiz penuh tidak disimpan ke storan awan kerana had saiz dokumen. Hanya thumbnail dan metadata yang disimpan. Muat turun imej untuk mendapatkan versi penuh.)
+            </p>
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Senarai Tangkapan Layar Tersimpan (Firestore) -->
+                <div class="flex-1 bg-white p-4 rounded-lg border border-gray-200 shadow-sm max-h-80 overflow-y-auto">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Dari Storan Awan (Firestore)</h3>
+                    <div id="storedScreenshotsList" class="flex flex-col gap-2">
+                        <p class="text-gray-500 text-center" id="noStoredScreenshots">Tiada tangkapan layar disimpan.</p>
+                        <!-- Senarai akan dimuatkan di sini -->
+                    </div>
+                </div>
+
+                <!-- Muat Imej dari Folder Lokal -->
+                <div class="flex-1 bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-4 max-h-80 overflow-y-auto">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Dari Folder Lokal</h3>
+                    <input type="file" id="folderInput" webkitdirectory multiple class="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-indigo-50 file:text-indigo-700
+                        hover:file:bg-indigo-100 mb-2
+                    "/>
+                    <div id="localImagesList" class="flex flex-col gap-2">
+                        <p class="text-gray-500 text-center" id="noLocalImages">Tiada imej dimuatkan.</p>
+                        <!-- Senarai imej lokal akan dimuatkan di sini -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kawalan Pengecaman Imej AI (Di bawah dua senarai) -->
+            <div class="w-full mt-6 bg-gray-100 p-6 rounded-xl border border-gray-300 shadow-inner flex flex-col gap-4">
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">Kawalan Perbandingan AI</h3>
+                <p class="text-gray-700 text-sm">Pilih satu imej dari mana-mana senarai di atas untuk perbandingan.</p>
+
+                <div id="selectedImageForComparison" class="p-3 bg-white rounded-md border border-gray-300 text-gray-600 text-sm">
+                    Imej Dipilih: Tiada
+                </div>
+
+                <button
+                    id="compareImagesButton"
+                    class="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-opacity-75"
+                    disabled
+                >
+                    Bandingkan dengan Tangkapan Layar Langsung
+                </button>
+
+                <div id="aiResultDisplay" class="mt-4 p-4 bg-yellow-100 rounded-lg border border-yellow-300 text-yellow-800 text-sm hidden">
+                    <!-- Hasil AI akan muncul di sini -->
+                </div>
+                <div id="aiLoadingIndicator" class="hidden mt-4 flex items-center justify-center text-indigo-700 text-sm">
+                    <svg class="animate-spin h-5 w-5 mr-3 text-indigo-500" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Menganalisis imej dengan AI...
+                </div>
+            </div>
+        </div>
+
+        <!-- Kanvas tersembunyi untuk melukis imej -->
+        <canvas id="screenshotCanvas"></canvas>
+        <canvas id="thumbnailCanvas" style="display: none;"></canvas> <!-- Kanvas tambahan untuk thumbnail -->
+
+        <!-- Modal untuk mesej -->
+        <div id="messageModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center flex flex-col gap-4">
+                <p id="modalMessage" class="text-gray-800 text-lg font-medium"></p>
+                <button id="closeModalButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    OK
+                </button>
+            </div>
+        </div>
+
+         <!-- Modal Pengesahan Pemadaman -->
+        <div id="confirmDeleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center flex flex-col gap-4">
+                <p class="text-gray-800 text-lg font-medium">Adakah anda pasti ingin memadam tangkapan layar ini?</p>
+                <div class="flex justify-center gap-4">
+                    <button id="confirmDeleteButton" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Padam</button>
+                    <button id="cancelDeleteButton" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Batal</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // Import modul Firebase yang diperlukan
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Penting: Ralat "Access to the feature 'display-capture' is disallowed by permissions policy"
+        // berlaku apabila aplikasi ini dijalankan dalam iframe (seperti dalam persekitaran Canvas ini)
+        // yang tidak mempunyai 'permissions policy' yang betul (iaitu, 'allow="display-capture"').
+        // Ini adalah batasan keselamatan pelayar/persekitaran dan bukan ralat dalam kod JavaScript itu sendiri.
+        // Kod ini berfungsi dengan betul apabila dijalankan dalam konteks top-level atau iframe dengan kebenaran yang betul.
+
+        // Inisialisasi Firebase
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'); // Pastikan ia sentiasa objek
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userId = null; // ID pengguna
+        let isAuthReady = false; // Status kesediaan pengesahan
+
+        // Dapatkan elemen DOM
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const intervalInput = document.getElementById('intervalInput');
+        const startTimeInput = document.getElementById('startTimeInput');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const captureNowButton = document.getElementById('captureNowButton');
+        const liveScreenshotContainer = document.getElementById('liveScreenshotContainer');
+        const liveScreenshotPlaceholder = document.getElementById('liveScreenshotPlaceholder');
+        const liveScreenshotImage = document.getElementById('liveScreenshotImage');
+        const downloadLiveButton = document.getElementById('downloadLiveButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const logDisplay = document.getElementById('logDisplay');
+        const screenshotCanvas = document.getElementById('screenshotCanvas');
+        const thumbnailCanvas = document.getElementById('thumbnailCanvas');
+        const storedScreenshotsList = document.getElementById('storedScreenshotsList');
+        const noStoredScreenshots = document.getElementById('noStoredScreenshots');
+        const folderInput = document.getElementById('folderInput');
+        const localImagesList = document.getElementById('localImagesList');
+        const noLocalImages = document.getElementById('noLocalImages');
+        const selectedImageForComparison = document.getElementById('selectedImageForComparison');
+        const compareImagesButton = document.getElementById('compareImagesButton');
+        const aiResultDisplay = document.getElementById('aiResultDisplay');
+        const aiLoadingIndicator = document.getElementById('aiLoadingIndicator');
+        const messageModal = document.getElementById('messageModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+        const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+        const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+
+        let scheduledIntervalId; // Untuk menyimpan ID interval tangkapan berjadual
+        let scheduledTimeoutId; // Untuk menyimpan ID timeout masa mula
+        let currentLiveScreenshotBase64 = null; // Untuk menyimpan tangkapan layar langsung terkini (Base64)
+        let selectedComparisonImageBase64 = null; // Untuk menyimpan imej yang dipilih untuk perbandingan (boleh dari Firestore atau lokal)
+        let selectedComparisonImageName = null; // Nama/ID imej yang dipilih
+
+        // Array untuk menyimpan imej lokal yang dimuatkan
+        let loadedLocalImages = [];
+
+        // Fungsi untuk menunjukkan modal mesej
+        function showMessageModal(message) {
+            modalMessage.textContent = message;
+            messageModal.classList.remove('hidden');
+        }
+
+        // Fungsi untuk menyembunyikan modal mesej
+        closeModalButton.addEventListener('click', () => {
+            messageModal.classList.add('hidden');
+        });
+
+        // Fungsi untuk menambah entri ke log
+        function addLogEntry(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('p');
+            logEntry.className = `p-1 rounded-md mb-1 ${
+                type === 'success' ? 'bg-green-100 text-green-800' :
+                type === 'error' ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
+            }`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDisplay.prepend(logEntry); // Tambah di bahagian atas
+            if (logDisplay.children.length > 50) { // Hadkan log kepada 50 entri
+                logDisplay.removeChild(logDisplay.lastChild);
+            }
+        }
+
+        // Fungsi untuk mengesahkan dan memadam tangkapan layar Firestore
+        function confirmAndDeleteScreenshot(docId) {
+            confirmDeleteModal.classList.remove('hidden');
+            confirmDeleteButton.onclick = async () => {
+                confirmDeleteModal.classList.add('hidden');
+                await deleteScreenshot(docId);
+            };
+            cancelDeleteButton.onclick = () => {
+                confirmDeleteModal.classList.add('hidden');
+            };
+        }
+
+        // Fungsi untuk mengambil tangkapan layar
+        async function captureScreenshot() {
+            loadingIndicator.classList.remove('hidden');
+            liveScreenshotPlaceholder.classList.add('hidden');
+            liveScreenshotImage.classList.add('hidden');
+            downloadLiveButton.classList.add('hidden');
+            aiResultDisplay.classList.add('hidden'); // Sembunyikan hasil AI sebelumnya
+            addLogEntry('Mencuba mengambil tangkapan layar...', 'info');
+
+            try {
+                // Minta akses untuk menangkap paparan
+                const mediaStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        cursor: "always"
+                    },
+                    audio: false
+                });
+
+                const videoTrack = mediaStream.getVideoTracks()[0];
+                const imageCapture = new ImageCapture(videoTrack);
+                const bitmap = await imageCapture.grabFrame();
+
+                const context = screenshotCanvas.getContext('2d');
+                screenshotCanvas.width = bitmap.width;
+                screenshotCanvas.height = bitmap.height;
+                context.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height); // Pastikan melukis saiz penuh
+
+                const imageDataUrl = screenshotCanvas.toDataURL('image/png');
+                currentLiveScreenshotBase64 = imageDataUrl.split(',')[1]; // Simpan hanya data Base64
+
+                // Paparkan imej tangkapan layar langsung
+                liveScreenshotImage.src = imageDataUrl;
+                liveScreenshotImage.classList.remove('hidden');
+                downloadLiveButton.href = imageDataUrl;
+                downloadLiveButton.classList.remove('hidden');
+
+                addLogEntry('Tangkapan layar berjaya diambil!', 'success');
+
+                // Hentikan trek media
+                videoTrack.stop();
+                loadingIndicator.classList.add('hidden');
+                return { imageDataUrl, bitmap }; // Kembalikan kedua-duanya untuk thumbnail
+            } catch (error) {
+                loadingIndicator.classList.add('hidden');
+                liveScreenshotPlaceholder.classList.remove('hidden');
+                currentLiveScreenshotBase64 = null; // Reset Base64 jika ada ralat
+
+                if (error.name === 'NotAllowedError') {
+                    addLogEntry('Kebenaran tangkapan layar tidak diberikan atau dibatalkan oleh pengguna.', 'error');
+                    showMessageModal('Anda telah membatalkan pilihan untuk berkongsi skrin/tetingkap/tab atau kebenaran tidak diberikan. Sila benarkan akses untuk mengambil tangkapan layar.');
+                } else if (error.name === 'NotFoundError') {
+                    addLogEntry('Tiada sumber paparan yang tersedia untuk dikongsi.', 'error');
+                    showMessageModal('Tiada sumber paparan yang tersedia. Pastikan ada tetingkap atau tab yang aktif.');
+                } else {
+                    addLogEntry(`Ralat semasa mengambil tangkapan layar: ${error.message}`, 'error');
+                    showMessageModal(`Ralat tidak dijangka: ${error.message}. Sila semak konsol untuk butiran.`);
+                }
+                console.error('Ralat tangkapan layar:', error);
+                return null;
+            }
+        }
+
+        // Fungsi untuk menjana thumbnail Base64 (saiz kecil)
+        function generateThumbnail(imageSource) { // imageSource boleh jadi ImageBitmap atau objek Image
+            const thumbContext = thumbnailCanvas.getContext('2d');
+            const maxWidth = 150; // Lebar maksimum thumbnail
+            const maxHeight = 100; // Tinggi maksimum thumbnail
+            let width = imageSource.width;
+            let height = imageSource.height;
+
+            if (width > height) {
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width *= maxHeight / height;
+                    height = maxHeight;
+                }
+            }
+            thumbnailCanvas.width = width;
+            thumbnailCanvas.height = height;
+            thumbContext.clearRect(0, 0, width, height); // Bersihkan kanvas sebelum melukis
+            thumbContext.drawImage(imageSource, 0, 0, width, height);
+            return thumbnailCanvas.toDataURL('image/jpeg', 0.7); // Jpeg untuk saiz yang lebih kecil
+        }
+
+        // --- Firebase Firestore Operations ---
+
+        // Fungsi untuk mendapatkan koleksi tangkapan layar pengguna
+        function getScreenshotsCollection() {
+            return collection(db, `artifacts/${appId}/users/${userId}/screenshots`);
+        }
+
+        // Simpan metadata tangkapan layar ke Firestore
+        async function saveScreenshotMetadata(imageDataUrl, bitmap) {
+            if (!userId) {
+                addLogEntry('Ralat: ID Pengguna tidak tersedia. Tidak dapat menyimpan.', 'error');
+                showMessageModal('Ralat: Sila tunggu pengesahan pengguna dimuatkan sebelum menyimpan tangkapan layar.');
+                return;
+            }
+
+            const timestamp = new Date();
+            const thumbnailBase64 = generateThumbnail(bitmap).split(',')[1]; // Simpan Base64 thumbnail
+
+            try {
+                const docRef = await addDoc(getScreenshotsCollection(), {
+                    timestamp: timestamp.toISOString(), // Simpan sebagai string ISO untuk keserasian
+                    thumbnailBase64: thumbnailBase64,
+                });
+                addLogEntry(`Metadata tangkapan layar disimpan ke Firestore (ID: ${docRef.id})`, 'success');
+            } catch (e) {
+                addLogEntry(`Ralat menyimpan metadata tangkapan layar: ${e.message}`, 'error');
+                showMessageModal(`Ralat menyimpan: ${e.message}. Sila cuba lagi.`);
+                console.error("Error adding document: ", e);
+            }
+        }
+
+        // Muat tangkapan layar dari Firestore dan paparkan
+        async function loadScreenshots() {
+            if (!userId) {
+                addLogEntry('Ralat: ID Pengguna tidak tersedia. Tidak dapat memuatkan tangkapan layar.', 'error');
+                return;
+            }
+
+            // Gunakan onSnapshot untuk mendapatkan kemas kini masa nyata
+            onSnapshot(getScreenshotsCollection(), (snapshot) => {
+                const screenshots = [];
+                snapshot.forEach((doc) => {
+                    screenshots.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Susun mengikut cap waktu (terbaharu dahulu)
+                screenshots.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                displayStoredScreenshots(screenshots);
+                addLogEntry('Senarai tangkapan layar yang disimpan dikemas kini.', 'info');
+            }, (error) => {
+                addLogEntry(`Ralat memuatkan tangkapan layar: ${error.message}`, 'error');
+                console.error("Error fetching documents: ", error);
+            });
+        }
+
+        // Paparkan senarai tangkapan layar yang disimpan
+        function displayStoredScreenshots(screenshots) {
+            storedScreenshotsList.innerHTML = ''; // Kosongkan senarai sedia ada
+            if (screenshots.length === 0) {
+                noStoredScreenshots.classList.remove('hidden');
+            } else {
+                noStoredScreenshots.classList.add('hidden');
+                screenshots.forEach(ss => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white shadow-sm';
+                    listItem.dataset.id = ss.id; // Simpan ID dokumen
+
+                    const thumbImage = document.createElement('img');
+                    thumbImage.src = `data:image/jpeg;base64,${ss.thumbnailBase64}`;
+                    thumbImage.alt = `Thumbnail ${new Date(ss.timestamp).toLocaleString()}`;
+                    thumbImage.className = 'w-16 h-12 object-cover rounded-md mr-3 flex-shrink-0';
+
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.className = 'flex-grow';
+                    const timestampP = document.createElement('p');
+                    timestampP.className = 'text-gray-800 font-medium text-sm';
+                    timestampP.textContent = `Tangkap: ${new Date(ss.timestamp).toLocaleString()}`;
+                    detailsDiv.appendChild(timestampP);
+
+                    const originSpan = document.createElement('span');
+                    originSpan.className = 'text-gray-500 text-xs ml-2';
+                    originSpan.textContent = '(Awan)';
+                    timestampP.appendChild(originSpan);
+
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'flex items-center gap-2 ml-4';
+
+                    // Butang Pilih untuk Perbandingan
+                    const selectButton = document.createElement('button');
+                    selectButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-500 hover:text-indigo-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>`; // Icon mata
+                    selectButton.title = "Pilih untuk Perbandingan AI";
+                    selectButton.className = 'p-1 rounded-full hover:bg-gray-100 transition duration-150 ease-in-out';
+                    selectButton.addEventListener('click', () => selectImageForComparison(ss.thumbnailBase64, `Awan: ${new Date(ss.timestamp).toLocaleString()}`));
+                    actionsDiv.appendChild(selectButton);
+
+                    // Butang Padam
+                    const deleteButton = document.createElement('button');
+                    deleteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 hover:text-red-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>`; // Icon tong sampah
+                    deleteButton.title = "Padam Tangkapan Layar";
+                    deleteButton.className = 'p-1 rounded-full hover:bg-gray-100 transition duration-150 ease-in-out';
+                    deleteButton.addEventListener('click', () => confirmAndDeleteScreenshot(ss.id));
+                    actionsDiv.appendChild(deleteButton);
+
+
+                    listItem.appendChild(thumbImage);
+                    listItem.appendChild(detailsDiv);
+                    listItem.appendChild(actionsDiv);
+                    storedScreenshotsList.appendChild(listItem);
+                });
+            }
+        }
+
+        // Padam tangkapan layar dari Firestore
+        async function deleteScreenshot(docId) {
+            if (!userId) {
+                addLogEntry('Ralat: ID Pengguna tidak tersedia. Tidak dapat memadam.', 'error');
+                showMessageModal('Ralat: Sila tunggu pengesahan pengguna dimuatkan.');
+                return;
+            }
+            try {
+                await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/screenshots`, docId));
+                addLogEntry(`Tangkapan layar ${docId} berjaya dipadam dari Firestore.`, 'success');
+                // loadScreenshots() will be called automatically by onSnapshot listener
+                if (selectedComparisonImageName && selectedComparisonImageName.includes(docId)) { // Check if the deleted item was selected
+                    resetSelectedComparisonImage();
+                }
+            } catch (e) {
+                addLogEntry(`Ralat memadam tangkapan layar ${docId}: ${e.message}`, 'error');
+                showMessageModal(`Ralat memadam: ${e.message}.`);
+                console.error("Error removing document: ", e);
+            }
+        }
+
+        // --- Muat Imej dari Folder Lokal ---
+        folderInput.addEventListener('change', async (event) => {
+            loadedLocalImages = []; // Kosongkan senarai sebelumnya
+            localImagesList.innerHTML = '';
+            noLocalImages.classList.remove('hidden'); // Paparkan placeholder sementara
+
+            const files = event.target.files;
+            if (files.length === 0) {
+                addLogEntry('Tiada folder atau fail yang dipilih.', 'info');
+                return;
+            }
+
+            addLogEntry(`Memuatkan ${files.length} fail dari folder terpilih...`, 'info');
+            showMessageModal(`Memuatkan ${files.length} fail dari folder. Ini mungkin mengambil sedikit masa...`);
+
+            const validImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            let loadedCount = 0;
+
+            for (const file of files) {
+                if (validImageTypes.includes(file.type)) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const base64Data = e.target.result.split(',')[1];
+                        const img = new Image();
+                        img.onload = () => {
+                            const thumbnailBase64 = generateThumbnail(img).split(',')[1];
+                            const localImage = {
+                                id: `local-${file.name}-${Date.now()}`, // ID unik untuk imej lokal
+                                name: file.name,
+                                type: file.type,
+                                size: file.size,
+                                lastModified: new Date(file.lastModified).toLocaleString(),
+                                base64Data: base64Data, // Data Base64 penuh
+                                thumbnailBase64: thumbnailBase64
+                            };
+                            loadedLocalImages.push(localImage);
+                            displayLocalImage(localImage);
+                            loadedCount++;
+                            if (loadedCount === files.filter(f => validImageTypes.includes(f.type)).length) {
+                                addLogEntry(`${loadedCount} imej berjaya dimuatkan dari folder lokal.`, 'success');
+                                showMessageModal(`Berjaya memuatkan ${loadedCount} imej dari folder lokal.`);
+                            }
+                        };
+                        img.onerror = () => {
+                            addLogEntry(`Gagal memuatkan imej: ${file.name}`, 'error');
+                        };
+                        img.src = e.target.result; // Muatkan imej untuk dapatkan lebar/tinggi
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    addLogEntry(`Fail ${file.name} diabaikan (bukan format imej yang disokong).`, 'info');
+                }
+            }
+            if (files.filter(f => validImageTypes.includes(f.type)).length === 0) {
+                 showMessageModal('Tiada imej yang disokong ditemui dalam folder yang dipilih.');
+            }
+             noLocalImages.classList.add('hidden'); // Sembunyikan placeholder setelah pemuatan bermula
+        });
+
+
+        // Paparkan imej lokal tunggal
+        function displayLocalImage(localImage) {
+            noLocalImages.classList.add('hidden'); // Sembunyikan placeholder jika ada imej
+            const listItem = document.createElement('div');
+            listItem.className = 'flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white shadow-sm';
+            listItem.dataset.id = localImage.id;
+
+            const thumbImage = document.createElement('img');
+            thumbImage.src = `data:image/jpeg;base64,${localImage.thumbnailBase64}`;
+            thumbImage.alt = `Thumbnail ${localImage.name}`;
+            thumbImage.className = 'w-16 h-12 object-cover rounded-md mr-3 flex-shrink-0';
+
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'flex-grow';
+            const nameP = document.createElement('p');
+            nameP.className = 'text-gray-800 font-medium text-sm truncate';
+            nameP.textContent = localImage.name;
+            detailsDiv.appendChild(nameP);
+
+            const originSpan = document.createElement('span');
+            originSpan.className = 'text-gray-500 text-xs ml-2';
+            originSpan.textContent = '(Lokal)';
+            nameP.appendChild(originSpan);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'flex items-center gap-2 ml-4';
+
+            // Butang Pilih untuk Perbandingan (Lokal)
+            const selectButton = document.createElement('button');
+            selectButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-500 hover:text-indigo-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>`;
+            selectButton.title = "Pilih untuk Perbandingan AI";
+            selectButton.className = 'p-1 rounded-full hover:bg-gray-100 transition duration-150 ease-in-out';
+            selectButton.addEventListener('click', () => selectImageForComparison(localImage.base64Data, `Lokal: ${localImage.name}`));
+            actionsDiv.appendChild(selectButton);
+
+            listItem.appendChild(thumbImage);
+            listItem.appendChild(detailsDiv);
+            listItem.appendChild(actionsDiv);
+            localImagesList.appendChild(listItem);
+        }
+
+        // Fungsi umum untuk memilih imej perbandingan
+        function selectImageForComparison(base64Data, name) {
+            selectedComparisonImageBase64 = base64Data;
+            selectedComparisonImageName = name;
+            selectedImageForComparison.textContent = `Imej Dipilih: ${name}`;
+            compareImagesButton.disabled = false;
+            aiResultDisplay.classList.add('hidden');
+            addLogEntry(`Imej '${name}' dipilih untuk perbandingan AI.`, 'info');
+        }
+
+        // Reset pilihan imej perbandingan
+        function resetSelectedComparisonImage() {
+            selectedComparisonImageBase64 = null;
+            selectedComparisonImageName = null;
+            selectedImageForComparison.textContent = 'Imej Dipilih: Tiada';
+            compareImagesButton.disabled = true;
+            aiResultDisplay.classList.add('hidden');
+        }
+
+
+        // --- Pengecaman Imej AI ---
+
+        // Fungsi untuk membandingkan imej menggunakan Gemini AI
+        async function compareImagesWithAI() {
+            if (!currentLiveScreenshotBase64) {
+                showMessageModal('Sila ambil tangkapan layar langsung terlebih dahulu untuk perbandingan.');
+                return;
+            }
+            if (!selectedComparisonImageBase64) {
+                showMessageModal('Sila pilih imej yang disimpan atau dimuatkan dari folder untuk perbandingan.');
+                return;
+            }
+
+            aiResultDisplay.classList.add('hidden');
+            aiLoadingIndicator.classList.remove('hidden');
+            addLogEntry('Memulakan perbandingan imej dengan AI...', 'info');
+
+            const prompt = `Bandingkan kedua-dua imej ini. Huraikan persamaan dan perbezaan mereka, dan nyatakan sama ada mereka kelihatan sama atau sangat serupa. Fokus pada elemen visual utama dan komposisi.`;
+
+            const chatHistory = [
+                {
+                    role: "user",
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: "image/png", // Tangkapan layar langsung sentiasa PNG
+                                data: currentLiveScreenshotBase64
+                            }
+                        },
+                        {
+                            inlineData: {
+                                // MimeType bergantung pada sumber imej yang dipilih
+                                mimeType: selectedComparisonImageName.startsWith('Awan:') ? "image/jpeg" : "image/png", // Anggapan thumbnail Firestore JPEG, lokal boleh jadi PNG/JPEG
+                                data: selectedComparisonImageBase64
+                            }
+                        }
+                    ]
+                }
+            ];
+
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // API Key akan disediakan oleh Canvas runtime
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const aiText = result.candidates[0].content.parts[0].text;
+                    aiResultDisplay.textContent = `Hasil AI: ${aiText}`;
+                    aiResultDisplay.className = 'mt-4 p-4 bg-green-100 rounded-lg border border-green-300 text-green-800 text-sm';
+                    aiResultDisplay.classList.remove('hidden');
+                    addLogEntry('Perbandingan AI berjaya!', 'success');
+                } else {
+                    aiResultDisplay.textContent = 'Ralat: Tiada hasil yang sah dari AI. Sila cuba lagi.';
+                    aiResultDisplay.className = 'mt-4 p-4 bg-red-100 rounded-lg border border-red-300 text-red-800 text-sm';
+                    aiResultDisplay.classList.remove('hidden');
+                    addLogEntry('Tiada hasil AI yang sah.', 'error');
+                }
+            } catch (error) {
+                aiResultDisplay.textContent = `Ralat memanggil AI: ${error.message}`;
+                aiResultDisplay.className = 'mt-4 p-4 bg-red-100 rounded-lg border border-red-300 text-red-800 text-sm';
+                aiResultDisplay.classList.remove('hidden');
+                addLogEntry(`Ralat AI: ${error.message}`, 'error');
+                console.error('Error calling Gemini API:', error);
+            } finally {
+                aiLoadingIndicator.classList.add('hidden');
+            }
+        }
+
+        // --- Logik Penjadualan ---
+
+        // Fungsi untuk memulakan jadual tangkapan layar
+        function startScheduledCapture() {
+            const intervalSeconds = parseInt(intervalInput.value);
+            const startTimeStr = startTimeInput.value;
+
+            if (isNaN(intervalSeconds) || intervalSeconds < 5) {
+                showMessageModal('Kekerapan tangkapan tidak sah. Sila masukkan nombor (minimum 5 saat).');
+                return;
+            }
+
+            const now = new Date();
+            let startTime = new Date();
+
+            if (startTimeStr) {
+                startTime = new Date(startTimeStr);
+                if (isNaN(startTime.getTime())) {
+                    showMessageModal('Masa mula tidak sah. Sila masukkan masa yang sah.');
+                    return;
+                }
+                if (startTime <= now) {
+                    showMessageModal('Masa mula mesti pada masa hadapan.');
+                    return;
+                }
+            } else {
+                // Jika masa mula tidak ditetapkan, mulakan serta-merta
+                startTime = now;
+            }
+
+            // Hentikan jadual yang sedia ada jika ada
+            stopScheduledCapture();
+
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            intervalInput.disabled = true;
+            startTimeInput.disabled = true;
+            captureNowButton.disabled = true;
+            folderInput.disabled = true; // Lumpuhkan input folder semasa jadual aktif
+
+            const delay = startTime.getTime() - now.getTime();
+
+            if (delay > 0) {
+                addLogEntry(`Jadual ditetapkan untuk bermula pada ${startTime.toLocaleString()}, kemudian setiap ${intervalSeconds} saat.`, 'info');
+                showMessageModal(`Tangkapan layar berjadual akan bermula pada ${startTime.toLocaleString()}.`);
+                scheduledTimeoutId = setTimeout(() => {
+                    addLogEntry('Masa mula tangkapan layar berjadual telah tiba. Memulakan tangkapan...', 'info');
+                    performScheduledCapture();
+                    scheduledIntervalId = setInterval(performScheduledCapture, intervalSeconds * 1000);
+                }, delay);
+            } else {
+                addLogEntry(`Memulakan tangkapan layar berjadual serta-merta setiap ${intervalSeconds} saat.`, 'info');
+                showMessageModal(`Tangkapan layar berjadual bermula sekarang, setiap ${intervalSeconds} saat.`);
+                performScheduledCapture();
+                scheduledIntervalId = setInterval(performScheduledCapture, intervalSeconds * 1000);
+            }
+        }
+
+        // Fungsi untuk melaksanakan tangkapan layar dalam jadual
+        async function performScheduledCapture() {
+            const result = await captureScreenshot();
+            if (result) {
+                await saveScreenshotMetadata(result.imageDataUrl, result.bitmap);
+            }
+        }
+
+        // Fungsi untuk menghentikan jadual tangkapan layar
+        function stopScheduledCapture() {
+            if (scheduledIntervalId) {
+                clearInterval(scheduledIntervalId);
+                scheduledIntervalId = null;
+                addLogEntry('Tangkapan layar berjadual dihentikan.', 'info');
+            }
+            if (scheduledTimeoutId) {
+                clearTimeout(scheduledTimeoutId);
+                scheduledTimeoutId = null;
+                addLogEntry('Jadual masa mula dibatalkan.', 'info');
+            }
+
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            intervalInput.disabled = false;
+            startTimeInput.disabled = false;
+            captureNowButton.disabled = false;
+            folderInput.disabled = false; // Aktifkan semula input folder
+        }
+
+        // --- Pengesahan Firebase dan Pemuatan Awal ---
+
+        // Listener perubahan status pengesahan
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                userIdDisplay.textContent = userId;
+                isAuthReady = true;
+                addLogEntry(`Pengesahan Firebase berjaya. ID Pengguna: ${userId}`, 'success');
+                // Muatkan tangkapan layar setelah pengesahan siap
+                await loadScreenshots();
+            } else {
+                // Cuba daftar masuk tanpa nama jika tiada token awal
+                try {
+                    if (typeof __initial_auth_token !== 'undefined') {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    addLogEntry(`Ralat pengesahan Firebase: ${error.message}`, 'error');
+                    showMessageModal(`Ralat pengesahan: ${error.message}. Aplikasi mungkin tidak berfungsi dengan baik tanpa ID pengguna.`);
+                    console.error("Firebase auth error:", error);
+                }
+            }
+        });
+
+        // --- Pendengar Acara ---
+        startButton.addEventListener('click', startScheduledCapture);
+        stopButton.addEventListener('click', stopScheduledCapture);
+        captureNowButton.addEventListener('click', async () => {
+            const result = await captureScreenshot();
+            if (result) {
+                await saveScreenshotMetadata(result.imageDataUrl, result.bitmap);
+            }
+        });
+        compareImagesButton.addEventListener('click', compareImagesWithAI);
+
+        // Pastikan butang stop dilumpuhkan pada muat halaman
+        window.onload = function() {
+            stopButton.disabled = true;
+            // Tetapkan masa mula lalai ke 1 minit dari sekarang
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 1);
+            now.setSeconds(0); // Bulatkan ke minit terdekat
+            startTimeInput.value = now.toISOString().slice(0, 16); // Format YYYY-MM-DDTHH:mm
+        };
+    </script>
+</body>
+</html>
